@@ -1,4 +1,12 @@
-//#include <stdio.h>
+/* 说明 ： 
+ 	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释。
+ 	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
+ 	*3，这是驱动层代码
+ * 作者 ： CSDN风正豪
+*/
+
+
+
 #include <linux/mm.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
@@ -125,6 +133,12 @@ static void  hello_exit(void)
 
 module_init(hello_init); //确认入口函数
 module_exit(hello_exit); //确认出口函数
+
+/*最后我们需要在驱动中加入 LICENSE 信息和作者信息，其中 LICENSE 是必须添加的，否则的话编译的时候会报错，作者信息可以添加也可以不添加
+ *这个协议要求我们代码必须免费开源，Linux遵循GPL协议，他的源代码可以开放使用，那么你写的内核驱动程序也要遵循GPL协议才能使用内核函数
+ *因为指定了这个协议，你的代码也需要开放给别人免费使用，同时可以根据这个协议要求很多厂商提供源代码
+ *但是很多厂商为了规避这个协议，驱动源代码很简单，复杂的东西放在应用层
+*/
 MODULE_LICENSE("GPL"); //指定模块为GPL协议
 
 
