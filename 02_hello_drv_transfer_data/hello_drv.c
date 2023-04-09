@@ -32,7 +32,7 @@
 #include <linux/uaccess.h>
 
 
-static struct class *hello_class;
+static struct class *hello_class;  //hello_class类，用于创建设备节点
 static int major; //主设备号，用于最后的驱动卸载
 static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信息
 
@@ -132,6 +132,8 @@ static int hello_init(void)
 	 *major为最终存放的第n项,等下卸载程序需要使用。如果不卸载程序，可以不管这个
 	*/
     major = register_chrdev(0, "100ask_hello", &hello_drv);
+	//如果成功注册驱动，打印
+	printk("insmod success!\n");
 	
 	/******这里相当于命令行输入 mknod  /dev/hello c 240 0 创建设备节点*****/
 	
@@ -163,8 +165,11 @@ static void hello_exit(void)
     device_destroy(hello_class, MKDEV(major, 0));
 	//销毁hello_class类
     class_destroy(hello_class);
-
+	//卸载驱动程序
+	//第一个参数是主设备号，第二个是名字
     unregister_chrdev(major, "100ask_hello");
+	//如果成功卸载驱动，打印
+	printk("rmmod success!\n");
 }
 
 

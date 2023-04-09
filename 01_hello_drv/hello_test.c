@@ -52,7 +52,7 @@ int main(int argc,char** argv)
     {
 		//读入100个字符
         len =read(fd,buf,100);
-		//无论传入多少个数据，都只会读100个字符
+		//无论传入多少个数据，最多都只会读100个字符
         buf[99] = '\0';
 		//打印读取到的字符
         printf("read str : %s\n",buf);
