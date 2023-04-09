@@ -20,8 +20,8 @@
  */
 int main(int argc,char** argv)
 {
-    int fd,len;
-    char buf[100];
+    int fd,len;    //fd：存放文件描述符；len：存放写入字符个数
+    char buf[100]; //存放文件中的字符
 	//如果输入参数小于2个，打印本程序使用方法
     if(argc < 2)
     {
@@ -30,7 +30,7 @@ int main(int argc,char** argv)
         return -1;
     }
 
-    //打开/dev/xxx文件
+    //打开/dev/xxx文件（设备节点），返回一个文件描述符，我们之后可以直接根据这个文件描述符来操作设备节点，间接操作驱动
     fd = open(argv[1],O_RDWR);
 	//如果打开失败
     if(fd < 0)
@@ -39,7 +39,7 @@ int main(int argc,char** argv)
         return -1;
     }
 
-    //如果输入参数为3个，表示写入程序
+    //如果输入参数为3个，表示写入数据
     if(argc == 3)
     {
 		//因为strlen计算字符串长度不会包括'\0'，所以需要+1

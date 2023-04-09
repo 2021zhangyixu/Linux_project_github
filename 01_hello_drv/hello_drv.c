@@ -30,7 +30,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 
-static int major;
+static int major; //主设备号，用于最后的驱动卸载
 
 /*
  *传入参数 ：
@@ -111,6 +111,7 @@ static const struct file_operations  hello_drv = {
 
 //2,注册驱动（注意，我们在入口函数中注册）
 
+//在命令行输入insmod命令，就是注册驱动程序。之后就会进入这个入口函数
 //3,入口函数
 static int  hello_init(void)
 {
@@ -119,15 +120,20 @@ static int  hello_init(void)
 	 *major为最终存放的第n项,等下卸载程序需要使用。如果不卸载程序，可以不管这个
 	*/
     major = register_chrdev(0,"100ask_hello",&hello_drv);
+	//如果成功注册驱动，打印
+	printk("insmod success!\n");
     return 0;
 }
 
+//在命令行输入rmmod命令，就是注册驱动程序。之后就会进入这个出口函数
 //4,出口函数
 static void  hello_exit(void)
 {
 	//卸载驱动程序
 	//第一个参数是主设备号，第二个是名字
     unregister_chrdev(major,"100ask_hello");
+	//如果成功卸载驱动，打印
+	printk("rmmod success!\n");
 }
 
 
@@ -140,5 +146,7 @@ module_exit(hello_exit); //确认出口函数
  *但是很多厂商为了规避这个协议，驱动源代码很简单，复杂的东西放在应用层
 */
 MODULE_LICENSE("GPL"); //指定模块为GPL协议
+MODULE_AUTHOR("CSDN:qq_63922192");  //表明作者，可以不写
+
 
 
