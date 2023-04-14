@@ -33,12 +33,13 @@
 #include <linux/fcntl.h>
 #include <linux/timer.h>
 
+//描述一个引脚
 struct gpio_desc{
-	int gpio;  //引脚编号
-	int irq;   //中断号
-    char *name;
-    int key;
-	struct timer_list key_timer;
+	int gpio;   //引脚编号
+	int irq;    //中断号
+    char *name; //名字
+    int key;    //按键值
+	struct timer_list key_timer; //定时器，用于消除抖动
 } ;
 
 static struct gpio_desc gpios[2] = {
@@ -105,9 +106,13 @@ static void key_timer_expire(unsigned long data)
 
 
 	//printk("key_timer_expire key %d %d\n", gpio_desc->gpio, val);
+	//读取按键值
 	key = (gpio_desc->key) | (val<<8);
+	//将按键值放入缓冲区
 	put_key(key);
+	//如果有人在等待这些按键的话，就需要去唤醒。在等待队列中唤醒
 	wake_up_interruptible(&gpio_wait);
+	//如果是异步通知，使用这个函数，发一个信号给线程
 	kill_fasync(&button_fasync, SIGIO, POLL_IN);
 }
 
@@ -166,10 +171,10 @@ static int gpio_drv_fasync(int fd, struct file *file, int on)
 /* 定义自己的file_operations结构体                                              */
 static struct file_operations gpio_key_drv = {
 	.owner	 = THIS_MODULE,
-	.read    = gpio_drv_read,
-	.write   = gpio_drv_write,
-	.poll    = gpio_drv_poll,
-	.fasync  = gpio_drv_fasync,
+	.read    = gpio_drv_read,      //读
+	.write   = gpio_drv_write,     //写
+	.poll    = gpio_drv_poll,      //poll机制
+	.fasync  = gpio_drv_fasync,    //异步通知机制
 };
 
 //中断函数
@@ -177,7 +182,7 @@ static irqreturn_t gpio_key_isr(int irq, void *dev_id)
 {
 	struct gpio_desc *gpio_desc = dev_id;
 	printk("gpio_key_isr key %d irq happened\n", gpio_desc->gpio);
-	//修改定时器的超时时间
+	//修改定时器的超时时间，每次进入中断，当前值增加HZ/5，用于消除抖动
 	mod_timer(&gpio_desc->key_timer, jiffies + HZ/5);
 	return IRQ_HANDLED;
 }
@@ -188,32 +193,57 @@ static int __init gpio_drv_init(void)
 {
     int err;
     int i;
+	//计算有多少个GPIO需要转化成中断号
     int count = sizeof(gpios)/sizeof(gpios[0]);
     
 	printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 	
 	for (i = 0; i < count; i++)
-	{		
+	{	
+		//将一个GPIO转化成为中断号
 		gpios[i].irq  = gpio_to_irq(gpios[i].gpio);
-
+		//设置定时器，给他提供定时器处理函数（key_timer_expire），还给这个处理函数提供一个参数(unsigned long)&gpios[i]
 		setup_timer(&gpios[i].key_timer, key_timer_expire, (unsigned long)&gpios[i]);
 	 	//timer_setup(&gpios[i].key_timer, key_timer_expire, 0);
+	 	//定时器相关配置，超时时间设置为最大
 		gpios[i].key_timer.expires = ~0;
+		//启动定时器
 		add_timer(&gpios[i].key_timer);
-		//注册中断
+		/* 注册中断
+		 * 参数一 ： 中断号
+		 * 参数二 ： 中断处理函数
+		 * 参数三 ： 中断触发类型（IRQF_TRIGGER_RISING表示上升沿触发，IRQF_TRIGGER_FALLING表示下降沿触发，最终表示双边沿触发）
+		 * 参数四 ： 名字（不重要）
+		 * 参数五 ： 引脚
+		*/
 		err = request_irq(gpios[i].irq, gpio_key_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, "100ask_gpio_key", &gpios[i]);
 	}
 
 	/* 注册file_operations 	*/
 	major = register_chrdev(0, "100ask_gpio_key", &gpio_key_drv);  /* /dev/gpio_desc */
 
+	/******这里相当于命令行输入 mknod  /dev/100ask_gpio c 240 0 创建设备节点*****/
+
+	//创建类，为THIS_MODULE模块创建一个类，这个类叫做 100ask_gpio_key_class
 	gpio_class = class_create(THIS_MODULE, "100ask_gpio_key_class");
-	if (IS_ERR(gpio_class)) {
+	if (IS_ERR(gpio_class))  //如果返回错误
+	{
+		/*__FILE__ ：表示文件
+		 *__FUNCTION__ ：当前函数名
+		 *__LINE__ ：在文件的哪一行
+		*/
 		printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
+		//注销file_operations
 		unregister_chrdev(major, "100ask_gpio_key");
+		//返回错误
 		return PTR_ERR(gpio_class);
 	}
-
+	/* 输入参数是逻辑设备的设备名，即在目录/dev目录下创建的设备名
+	 * 参数一 ： 在hello_class类下面创建设备
+	 * 参数二 ： 无父设备的指针
+	 * 参数三 ： dev为主设备号+次设备号
+	 * 参数四 ： 没有私有数据
+	*/
 	device_create(gpio_class, NULL, MKDEV(major, 0), NULL, "100ask_gpio"); /* /dev/100ask_gpio */
 	
 	return err;
@@ -225,11 +255,16 @@ static void __exit gpio_drv_exit(void)
 {
     int i;
     int count = sizeof(gpios)/sizeof(gpios[0]);
-    
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
 	printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
-
+	//销毁gpio_class类下面的设备节点
 	device_destroy(gpio_class, MKDEV(major, 0));
+	//销毁gpio_class类
 	class_destroy(gpio_class);
+	//注销file_operations
 	unregister_chrdev(major, "100ask_gpio_key");
 
 	for (i = 0; i < count; i++)

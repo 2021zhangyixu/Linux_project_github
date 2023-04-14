@@ -25,7 +25,7 @@ int main(int argc,char** argv)
 	//如果输入参数小于2个，打印本程序使用方法
     if(argc < 2)
     {
-        printf("Usage:\n");
+        printf("Usage: \n");
         printf("%s <dev> [string]\n",argv[0]);
         return -1;
     }

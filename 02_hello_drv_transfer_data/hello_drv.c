@@ -68,7 +68,11 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
-	//驱动层发数据给应用层
+	/* 作用 ： 驱动层发数据给应用层
+	 * buf  ： 应用层数据
+	 * hello_buf : 驱动层数据
+	 * len  ：数据长度
+	*/
     copy_to_user(buf, hello_buf, len);
 
     return len;
@@ -90,7 +94,11 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
-	//驱动层得到应用层数据
+	/* 作用 ： 驱动层得到应用层数据
+	 * buf  ： 应用层数据
+	 * hello_buf : 驱动层数据
+	 * len  ：数据长度
+	*/
     copy_from_user(hello_buf, buf, len);
 
     return len;

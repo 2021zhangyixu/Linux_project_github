@@ -37,7 +37,7 @@
 
 static struct class *hello_class; //一个类，用于创建设备节点
 static struct cdev hello_cdev; //用于与file_operations结构体挂钩
-static dev_t dev;  //存储第一个设备的主设备号和次设备号
+static dev_t dev;  //存储驱动的主设备号和次设备号
 
 static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信息
 
@@ -49,6 +49,10 @@ static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信�
 */
 static int hello_open (struct inode *node, struct file *filp)
 {
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
     return 0;
 }
@@ -63,10 +67,18 @@ static int hello_open (struct inode *node, struct file *filp)
 */
 static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, loff_t *offset)
 {
+	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
-
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
-
+	/* 作用 ： 驱动层发数据给应用层
+	 * buf  ： 应用层数据
+	 * hello_buf : 驱动层数据
+	 * len  ：数据长度
+	*/
     copy_to_user(buf, hello_buf, len);
 
     return len;
@@ -82,9 +94,18 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 */
 static ssize_t hello_write(struct file *filp, const char __user *buf, size_t size, loff_t *offset)
 {
+	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
-
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+	/* 作用 ： 驱动层得到应用层数据
+	 * buf  ： 应用层数据
+	 * hello_buf : 驱动层数据
+	 * len  ：数据长度
+	*/
     copy_from_user(hello_buf, buf, len);
 
     return len;
@@ -98,6 +119,10 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
 */
 static int hello_release (struct inode *node, struct file *filp)
 {
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
     return 0;
 }
@@ -124,7 +149,7 @@ static int hello_init(void)
     // 所有这里要做，申请一个主设备号和指定的次设备号，这一部分用于注册驱动程序
 	/*申请一个主次设备号空间，这个区域给当前驱动使用，主设备号和次设备号存入第一个参数中
 	 *参数一 ：第一个设备的主设备号和次设备号
-	 *参数二 : 主设备号
+	 *参数二 : 从哪个次设备号开始
 	 *参数三 ：想获得几个次设备号
 	 *参数四 ：驱动程序名
 	 *返回值：如果申请失败，返回一个负数
@@ -144,6 +169,7 @@ static int hello_init(void)
 	 *参数一 ： 要增加的cdev
 	 *参数二 ： 将主次设备号dev传入
 	 *参数三 ： 决定占用几个主次设备号，这里占2个主次设备号
+	 *返回值 ： 如果返回值不是0，表示错误
 	*/
     ret = cdev_add(&hello_cdev, dev, 2);
 	//如果返回值不为0，打印错误
@@ -192,6 +218,8 @@ static void hello_exit(void)
     cdev_del(&hello_cdev);
 	//将申请到的主次设备号空间释放
     unregister_chrdev_region(dev, 2);
+	//如果成功卸载驱动，打印
+	printk("rmmod success!\n");
 }
 
 

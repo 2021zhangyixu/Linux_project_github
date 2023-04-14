@@ -106,7 +106,7 @@ static const struct file_operations  hello_drv = {
 	.read		= hello_read,
 	.write		= hello_write,
 	.open		= hello_open,
-    .release    = hello_release
+    .release    = hello_release,
 };
 
 //2,注册驱动（注意，我们在入口函数中注册）
