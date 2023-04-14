@@ -49,7 +49,7 @@ static struct gpio_desc gpios[2] = {
 
 /* 主设备号                                                                 */
 static int major = 0;
-static struct class *gpio_class;
+static struct class *gpio_class;   //一个类，用于创建设备节点
 
 /* 环形缓冲区 */
 #define BUF_LEN 128
@@ -62,6 +62,7 @@ struct fasync_struct *button_fasync;
 
 static int is_key_buf_empty(void)
 {
+	//读位置等于写位置，表示空
 	return (r == w);
 }
 
@@ -72,9 +73,12 @@ static int is_key_buf_full(void)
 
 static void put_key(int key)
 {
+	//如果环形缓冲区没有满
 	if (!is_key_buf_full())
 	{
+		//把按键值放入环形缓冲区的w位置
 		g_keys[w] = key;
+		//w指向下一个
 		w = NEXT_POS(w);
 	}
 }
@@ -82,9 +86,12 @@ static void put_key(int key)
 static int get_key(void)
 {
 	int key = 0;
+	//如果环形缓冲区数据不为空
 	if (!is_key_buf_empty())
 	{
+		//从r的位置读取数据
 		key = g_keys[r];
+		//让r为下一个位置
 		r = NEXT_POS(r);
 	}
 	return key;
@@ -94,6 +101,7 @@ static int get_key(void)
 static DECLARE_WAIT_QUEUE_HEAD(gpio_wait);
 
 // static void key_timer_expire(struct timer_list *t)
+//定时器超时函数，按键抖动消除之后进入
 static void key_timer_expire(unsigned long data)
 {
 	/* data ==> gpio */
@@ -101,16 +109,16 @@ static void key_timer_expire(unsigned long data)
 	struct gpio_desc *gpio_desc = (struct gpio_desc *)data;
 	int val;
 	int key;
-	//读取引脚
+	//读取按键
 	val = gpio_get_value(gpio_desc->gpio);
 
 
 	//printk("key_timer_expire key %d %d\n", gpio_desc->gpio, val);
 	//读取按键值
 	key = (gpio_desc->key) | (val<<8);
-	//将按键值放入缓冲区
+	//将按键值放入环形缓冲区
 	put_key(key);
-	//如果有人在等待这些按键的话，就需要去唤醒。在等待队列中唤醒
+	//如果有人在等待这些按键的话，就需要去唤醒。在等待队列（gpio_wait）中唤醒
 	wake_up_interruptible(&gpio_wait);
 	//如果是异步通知，使用这个函数，发一个信号给线程
 	kill_fasync(&button_fasync, SIGIO, POLL_IN);
@@ -123,12 +131,18 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	//printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 	int err;
 	int key;
-
+	//如果环形缓冲区没有数据，并且打开的文件flag为非阻塞
 	if (is_key_buf_empty() && (file->f_flags & O_NONBLOCK))
-		return -EAGAIN;
-	
+		return -EAGAIN; //返回错误
+	//如果是阻塞模式，这里将会等待is_key_buf_empty()为真。1，等待过程会改变程序状态 2，把这个程序记录在gpio_wait（队列）中
 	wait_event_interruptible(gpio_wait, !is_key_buf_empty());
+	//获得按键值数据，读取环形缓冲区
 	key = get_key();
+	/* 作用 ： 驱动层发数据给应用层
+	 * buf  ： 应用层数据
+	 * &key : 驱动层数据
+	 * len  ：数据长度
+	*/
 	err = copy_to_user(buf, &key, 4);
 	
 	return 4;
@@ -155,7 +169,9 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 static unsigned int gpio_drv_poll(struct file *fp, poll_table * wait)
 {
 	//printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
+	//将当前的进程放到gpio_wait队列中，并没有休眠
 	poll_wait(fp, &gpio_wait, wait);
+	//返回当前状态
 	return is_key_buf_empty() ? 0 : POLLIN | POLLRDNORM;
 }
 
@@ -182,7 +198,7 @@ static irqreturn_t gpio_key_isr(int irq, void *dev_id)
 {
 	struct gpio_desc *gpio_desc = dev_id;
 	printk("gpio_key_isr key %d irq happened\n", gpio_desc->gpio);
-	//修改定时器的超时时间，每次进入中断，当前值增加HZ/5，用于消除抖动
+	//修改定时器的超时时间，每次进入中断，当前值增加HZ/5，用于消除抖动。抖动消除之后，进入 key_timer_expire 函数
 	mod_timer(&gpio_desc->key_timer, jiffies + HZ/5);
 	return IRQ_HANDLED;
 }
