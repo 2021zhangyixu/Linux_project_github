@@ -181,7 +181,7 @@ static int hello_init(void)
 		return -EINVAL;
     }
 	
-	/******这里相当于命令行输入 mknod  /dev/hello c 240 0 创建设备节点*****/
+	/******这里相当于命令行输入 mknod    /dev/hello c 240 0 创建设备节点*****/
 	
 	//创建类，为THIS_MODULE模块创建一个类，这个类叫做hello_class
 	hello_class = class_create(THIS_MODULE, "hello_class");

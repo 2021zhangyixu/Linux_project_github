@@ -58,8 +58,9 @@ static int r, w;
 
 struct fasync_struct *button_fasync;
 
-#define NEXT_POS(x) ((x+1) % BUF_LEN)
+#define NEXT_POS(x) ((x+1) % BUF_LEN)  //用于环形缓冲区的循环
 
+//判断环形缓冲区是否为空
 static int is_key_buf_empty(void)
 {
 	//读位置等于写位置，表示空
@@ -134,6 +135,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	//如果环形缓冲区没有数据，并且打开的文件flag为非阻塞
 	if (is_key_buf_empty() && (file->f_flags & O_NONBLOCK))
 		return -EAGAIN; //返回错误
+		
 	//如果是阻塞模式，这里将会等待is_key_buf_empty()为真。1，等待过程会改变程序状态 2，把这个程序记录在gpio_wait（队列）中
 	wait_event_interruptible(gpio_wait, !is_key_buf_empty());
 	//获得按键值数据，读取环形缓冲区

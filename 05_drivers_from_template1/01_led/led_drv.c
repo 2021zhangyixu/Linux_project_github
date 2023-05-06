@@ -61,7 +61,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	/* 作用 ： 驱动层得到应用层数据
 	 * tmp_buf : 驱动层数据
 	 * buf ： 应用层数据
-	 * 1  ：数据长度为1个字节
+	 * 1  ：数据长度为1个字节（因为我只需要知道他控制的是那一盏灯，所以只需要传入一个字节数据）
 	*/
 	err = copy_from_user(tmp_buf, buf, 1);
 	

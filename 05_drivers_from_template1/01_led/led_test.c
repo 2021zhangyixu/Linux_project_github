@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 		 * 0 ： 表示默认采用 10 进制转换
 		*/
 		buf[0] = strtol(argv[1], NULL, 0);
-		//读取电平
+		//读取电平，从驱动层读取两个数据
 		ret = read(fd, buf, 2);
 		//如果返回值为2，表示正常读取到了电平。（为什么是2，看驱动程序的gpio_drv_read）
 		if (ret == 2)
