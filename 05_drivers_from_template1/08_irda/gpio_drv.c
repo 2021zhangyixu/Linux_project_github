@@ -275,7 +275,11 @@ static int __init irda_init(void)
     int err;
     int i;
     int count = sizeof(gpios)/sizeof(gpios[0]);  //计算需要使用的GPIO数量
-    
+
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
 	printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 	
 	for (i = 0; i < count; i++)

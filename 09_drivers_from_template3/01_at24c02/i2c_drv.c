@@ -1,4 +1,11 @@
-﻿#include "asm/uaccess.h"
+﻿/* 说明 ： 
+ 	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释。
+ 	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
+ 	*3，这是应用层代码
+ * 作者 ： CSDN风正豪
+*/
+
+#include "asm/uaccess.h"
 #include "linux/delay.h"
 #include "linux/i2c.h"
 #include <linux/module.h>
@@ -185,7 +192,7 @@ static int i2c_drv_remove(struct i2c_client *client)
 }
 
 static const struct of_device_id myi2c_dt_match[] = {
-	{ .compatible = "100ask,i2cdev" },
+	{ .compatible = "100ask,i2cdev" },  //这个是通过设备树进行匹配设备
 	{},
 };
 
@@ -195,12 +202,12 @@ static const struct i2c_device_id at24c02_ids[] = {
 };
 static struct i2c_driver my_i2c_driver = {
 	.driver = {
-		   .name = "100ask_i2c_drv",
+		   .name = "100ask_i2c_drv",   //根据这个名字，在c文件中找到设备
 		   .owner = THIS_MODULE,
 		   .of_match_table = myi2c_dt_match,
 	},
-	.probe = i2c_drv_probe,
-	.remove = i2c_drv_remove,
+	.probe = i2c_drv_probe,    //注册平台之后，内核如果发现支持某一个平台设备，这个函数就会被调用。入口函数
+	.remove = i2c_drv_remove,  //出口函数
 	.id_table = at24c02_ids,
 };
 
@@ -208,7 +215,7 @@ static struct i2c_driver my_i2c_driver = {
 static int __init i2c_drv_init(void)
 {
 	/* 注册i2c_driver */
-	return i2c_add_driver(&my_i2c_driver);
+	return i2c_add_driver(&my_i2c_driver);  //注意，这里是driver表示是驱动
 }
 
 static void __exit i2c_drv_exit(void)
@@ -219,9 +226,16 @@ static void __exit i2c_drv_exit(void)
 
 /* 7. 其他完善：提供设备信息，自动创建设备节点                                     */
 
-module_init(i2c_drv_init);
-module_exit(i2c_drv_exit);
+module_init(i2c_drv_init);  //确认入口函数
+module_exit(i2c_drv_exit);  //确认出口函数
 
-MODULE_LICENSE("GPL");
+/*最后我们需要在驱动中加入 LICENSE 信息和作者信息，其中 LICENSE 是必须添加的，否则的话编译的时候会报错，作者信息可以添加也可以不添加
+ *这个协议要求我们代码必须免费开源，Linux遵循GPL协议，他的源代码可以开放使用，那么你写的内核驱动程序也要遵循GPL协议才能使用内核函数
+ *因为指定了这个协议，你的代码也需要开放给别人免费使用，同时可以根据这个协议要求很多厂商提供源代码
+ *但是很多厂商为了规避这个协议，驱动源代码很简单，复杂的东西放在应用层
+*/
+MODULE_LICENSE("GPL"); //指定模块为GPL协议
+MODULE_AUTHOR("CSDN:qq_63922192");  //表明作者，可以不写
+
 
 

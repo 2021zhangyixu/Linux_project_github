@@ -1,4 +1,11 @@
-﻿#include <linux/module.h>
+﻿/* 说明 ： 
+ 	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释。
+ 	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
+ 	*3，这是应用层代码
+ * 作者 ： CSDN风正豪
+*/
+
+#include <linux/module.h>
 #include <linux/poll.h>
 
 #include <linux/fs.h>
@@ -179,7 +186,11 @@ static int gpio_drv_probe(struct platform_device *pdev)
     int i;
 	struct device_node *np = pdev->dev.of_node;
 	struct resource *res;
-    
+
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
 	printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 	
 
@@ -196,7 +207,7 @@ static int gpio_drv_probe(struct platform_device *pdev)
             gpios = <&gpio5 5 GPIO_ACTIVE_HIGH>, <&gpio5 3 GPIO_ACTIVE_HIGH>;
         };
 		*/
-		count = of_gpio_count(np);
+		count = of_gpio_count(np); //统计的设备的 GPIO 数量
 		if (!count)
 			return -EINVAL;
 
@@ -262,14 +273,30 @@ static int gpio_drv_probe(struct platform_device *pdev)
 
 	/* 注册file_operations 	*/
 	major = register_chrdev(0, "100ask_gpio_key", &gpio_key_drv);  /* /dev/gpio_desc */
-
+	
+	/******这里相当于命令行输入 mknod 	/dev/sr04 c 240 0 创建设备节点*****/
+	
+	//创建类，为THIS_MODULE模块创建一个类，这个类叫做100ask_gpio_key_class
 	gpio_class = class_create(THIS_MODULE, "100ask_gpio_key_class");
-	if (IS_ERR(gpio_class)) {
+	//如果类创建失败
+	if (IS_ERR(gpio_class)) 
+	{
+		/*__FILE__ ：表示文件
+		 *__FUNCTION__ ：当前函数名
+		 *__LINE__ ：在文件的哪一行
+		*/
 		printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
+		//卸载驱动程序
 		unregister_chrdev(major, "100ask_gpio_key");
+		//返回错误
 		return PTR_ERR(gpio_class);
 	}
-
+	/*输入参数是逻辑设备的设备名，即在目录/dev目录下创建的设备名
+	 *参数一 ： 在gpio_class类下面创建设备
+	 *参数二 ： 无父设备的指针
+	 *参数三 ： dev为主设备号+次设备号
+	 *参数四 ： 没有私有数据
+	*/
 	device_create(gpio_class, NULL, MKDEV(major, 0), NULL, "100ask_gpio"); /* /dev/100ask_gpio */
 	
 	return err;
@@ -324,9 +351,16 @@ static void __exit gpio_drv_exit(void)
 
 /* 7. 其他完善：提供设备信息，自动创建设备节点                                     */
 
-module_init(gpio_drv_init);
-module_exit(gpio_drv_exit);
+module_init(gpio_drv_init);  //确认入口函数
+module_exit(gpio_drv_exit);  //确认出口函数
 
-MODULE_LICENSE("GPL");
+/*最后我们需要在驱动中加入 LICENSE 信息和作者信息，其中 LICENSE 是必须添加的，否则的话编译的时候会报错，作者信息可以添加也可以不添加
+ *这个协议要求我们代码必须免费开源，Linux遵循GPL协议，他的源代码可以开放使用，那么你写的内核驱动程序也要遵循GPL协议才能使用内核函数
+ *因为指定了这个协议，你的代码也需要开放给别人免费使用，同时可以根据这个协议要求很多厂商提供源代码
+ *但是很多厂商为了规避这个协议，驱动源代码很简单，复杂的东西放在应用层
+*/
+MODULE_LICENSE("GPL"); //指定模块为GPL协议
+MODULE_AUTHOR("CSDN:qq_63922192");  //表明作者，可以不写
+
 
 

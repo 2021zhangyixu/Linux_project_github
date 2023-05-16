@@ -50,28 +50,28 @@ static struct resource my_drv_resource[] = {
 };
 
 static struct platform_device gpio_platform_device = {
-        .name           = "100ask_gpio_plat_drv",
-        .id             = 0,
-        .num_resources  = ARRAY_SIZE(my_drv_resource),
-        .resource       = my_drv_resource,
+        .name           = "100ask_gpio_plat_drv",      //根据这个名字，找到驱动
+        .id             = 0,                           //无所谓
+        .num_resources  = ARRAY_SIZE(my_drv_resource), //资源个数，ARRAY_SIZE用于计算数组大小
+        .resource       = my_drv_resource,             //用于描述硬件资源信息
 };
 
 static int __init gpio_dev_init(void)
 {
 	/* 注册platform_driver */
-	return platform_device_register(&gpio_platform_device);
+	return platform_device_register(&gpio_platform_device);  //注意，这里是device表示是设备
 }
 
 static void __exit gpio_dev_exit(void)
 {
 	/* 反注册platform_driver */
-	platform_device_unregister(&gpio_platform_device);
+	platform_device_unregister(&gpio_platform_device);       //注意，这里是device表示是设备
 }
 
 /* 7. 其他完善：提供设备信息，自动创建设备节点                                     */
 
-module_init(gpio_dev_init);
-module_exit(gpio_dev_exit);
+module_init(gpio_dev_init);  //入口函数
+module_exit(gpio_dev_exit);  //出口函数
 
 MODULE_LICENSE("GPL");
 

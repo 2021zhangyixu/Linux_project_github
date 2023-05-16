@@ -178,7 +178,7 @@ static long sr04_ioctl(struct file *filp, unsigned int command, unsigned long ar
 
 /* 定义自己的file_operations结构体                                              */
 static struct file_operations sr04_drv = {
-	.owner	 = THIS_MODULE,
+	.owner	 = THIS_MODULE,          //表明这个结构体属于这个驱动模块
 	.read    = sr04_read,            //读
 	.poll    = sr04_poll,            //poll机制
 	.fasync  = sr04_fasync,          //异步通知机制
@@ -273,7 +273,7 @@ static int __init sr04_init(void)
 		 *__LINE__ ：在文件的哪一行
 		*/
 		printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
-		//打印类创建失败
+		//注销驱动
 		unregister_chrdev(major, "100ask_sr04");
 		//返回错误
 		return PTR_ERR(gpio_class);
