@@ -145,7 +145,7 @@ static int gpio_drv_probe(struct platform_device *pdev)
 
 	/* 从platfrom_device获得引脚信息 
 	 * 1. pdev来自c文件
-     * 2. pdev来自设备树
+   * 2. pdev来自设备树
 	 */
 	
 	if (np)
@@ -153,17 +153,32 @@ static int gpio_drv_probe(struct platform_device *pdev)
 		/* pdev来自设备树 : 示例
         reg_usb_ltemodule: regulator@1 {
             compatible = "100ask,gpiodemo";
-            gpios = <&gpio5 5 GPIO_ACTIVE_HIGH>, <&gpio5 3 GPIO_ACTIVE_HIGH>;
+                   //GPIO 控制器      引脚号      极性（可选）
+            gpios = <&gpio5        5      GPIO_ACTIVE_HIGH>, <&gpio5 3 GPIO_ACTIVE_HIGH>;
         };
+		*/
+		/* 作用 ： 获取设备树中某个设备节点所定义的 GPIO（通用输入输出）的数量
+		 * np ：指向要查询的设备节点（struct device_node 结构体）的指针
+		 * 返回值 ： 成功返回设备节点中定义的 GPIO 的数量，失败就返回负数
 		*/
 		count = of_gpio_count(np); //统计的设备的 GPIO 数量
 		if (!count)
 			return -EINVAL;
-
+		
+		/* 作用 ： Linux 内核中用于动态分配内核空间的函数之一
+		 * size ：要分配的内存区域的大小（以字节为单位）
+		 * flags ：分配标志，用于指定内存分配的行为和属性，例如内存的连续性、是否可以等待等，一般选择GFP_KERNEL
+		 * 返回值 ： 成功返回指向分配的内存区域的指针，失败就返回NULL
+		*/
 		gpios = kmalloc(count * sizeof(struct gpio_desc), GFP_KERNEL);   //为gpio信息申请内存
 		for (i = 0; i < count; i++)
-		{
-			gpios[i].gpio = of_get_gpio(np, i);  //从节点里面取出第i项
+		{		
+		/* 作用 ： 获取设备树中某个设备节点所定义的 GPIO（通用输入输出）的引脚号
+		 * np ：指向要查询的设备节点（struct device_node 结构体）的指针
+		 * index ：GPIO 的索引号，用于指定要获取的 GPIO 在设备节点 np 中的位置
+		 * 返回值 ： 成功返回指定 GPIO 的引脚号，失败就返回负数
+		*/
+			gpios[i].gpio = of_get_gpio(np, i);  //从节点里面的gpios中取出第i项
 			sprintf(gpios[i].name, "%s_pin_%d", np->name, i); //按照上面的例子，gpios[i].name == gpio5_pin_5
 		}
 	}

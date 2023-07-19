@@ -1,4 +1,12 @@
-﻿#include "asm-generic/errno-base.h"
+﻿/* 说明 ： 
+ 	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释。
+ 	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
+ 	*3，这是驱动层代码
+ 	*4，TAB为4个空格
+ * 作者 ： CSDN风正豪
+*/
+
+#include "asm-generic/errno-base.h"
 #include "asm-generic/gpio.h"
 #include "asm/uaccess.h"
 #include <linux/module.h>
@@ -31,15 +39,11 @@
 //描述一个引脚
 struct gpio_desc{
 	int gpio;   //引脚编号
-	int irq;    //中断号
     char *name; //名字
-    int key;    //按键值
-	struct timer_list key_timer; //定时器，用于消除抖动
-} ;
+};
 
-static struct gpio_desc gpios[2] = {
-    {131, 0, "led0", },  //编号，引脚电平，名字
-    //{132, 0, "led1", },
+static struct gpio_desc gpios[] = {
+    {131, "led0", },  //引脚编号，名字
 };
 
 /* 主设备号                                                                 */
@@ -52,7 +56,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 {
 	char tmp_buf[2];  //存放驱动层和应用层交互的信息
 	int err;   //没有使用，用于存放copy_from_user和copy_to_user的返回值，消除报错
-    int count = sizeof(gpios)/sizeof(gpios[0]); //记录定义的最大引脚数量
+	int count = sizeof(gpios)/sizeof(gpios[0]); //记录定义的最大引脚数量
 
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
 	if (size != 2)
@@ -109,7 +113,7 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 
 
 /* 定义自己的file_operations结构体                                              */
-static struct file_operations gpio_key_drv = {
+static struct file_operations gpio_led_drv = {
 	.owner	 = THIS_MODULE,
 	.read    = gpio_drv_read,
 	.write   = gpio_drv_write,
@@ -119,10 +123,14 @@ static struct file_operations gpio_key_drv = {
 /* 在入口函数 */
 static int __init gpio_drv_init(void)
 {
-    int err;
-    int i;
-    int count = sizeof(gpios)/sizeof(gpios[0]);
-    
+    int err;  //用于保存函数返回值，用于判断函数是否执行成功
+    int i;    //因为存在多个GPIO可能要申请，所以建立一个i进行for循环
+    int count = sizeof(gpios)/sizeof(gpios[0]);  //统计有多少个GPIO
+	
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
 	printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 	
 	for (i = 0; i < count; i++)
@@ -133,7 +141,7 @@ static int __init gpio_drv_init(void)
 		//如果返回值小于0，表示申请失败
 		if (err < 0) 
 		{
-			//
+			//如果GPIO申请失败，打印出是哪个GPIO申请出现问题
 			printk("can not request gpio %s %d\n", gpios[i].name, gpios[i].gpio);
 			return -ENODEV;
 		}
@@ -143,7 +151,7 @@ static int __init gpio_drv_init(void)
 
 	/* 注册file_operations 	*/
 	//注册字符驱动程序
-	major = register_chrdev(0, "100ask_led", &gpio_key_drv);  /* /dev/gpio_desc */
+	major = register_chrdev(0, "100ask_led", &gpio_led_drv);  /* /dev/gpio_desc */
 	
 	/******这里相当于命令行输入 mknod  /dev/100ask_gpio c 240 0 创建设备节点*****/
 	
@@ -169,7 +177,9 @@ static int __init gpio_drv_init(void)
 	 *参数四 ： 没有私有数据
 	*/
 	device_create(gpio_class, NULL, MKDEV(major, 0), NULL, "100ask_led"); /* /dev/100ask_gpio */
-	
+
+	//如果执行到这里了，说明LED驱动装载完成
+	printk("LED driver loading is complete\n");
 	return err;
 }
 
@@ -196,14 +206,24 @@ static void __exit gpio_drv_exit(void)
 		//将GPIO释放
 		gpio_free(gpios[i].gpio);		
 	}
+	
+	//如果执行到这里了，说明LED驱动卸载完成
+	printk("The LED driver is uninstalled\n");
 }
 
 
 /* 7. 其他完善：提供设备信息，自动创建设备节点                                     */
 
-module_init(gpio_drv_init);
-module_exit(gpio_drv_exit);
+module_init(gpio_drv_init);  //确认入口函数
+module_exit(gpio_drv_exit);  //确认出口函数
 
-MODULE_LICENSE("GPL");
+/*最后我们需要在驱动中加入 LICENSE 信息和作者信息，其中 LICENSE 是必须添加的，否则的话编译的时候会报错，作者信息可以添加也可以不添加
+ *这个协议要求我们代码必须免费开源，Linux遵循GPL协议，他的源代码可以开放使用，那么你写的内核驱动程序也要遵循GPL协议才能使用内核函数
+ *因为指定了这个协议，你的代码也需要开放给别人免费使用，同时可以根据这个协议要求很多厂商提供源代码
+ *但是很多厂商为了规避这个协议，驱动源代码很简单，复杂的东西放在应用层
+*/
+MODULE_LICENSE("GPL"); //指定模块为GPL协议
+MODULE_AUTHOR("CSDN:qq_63922192");  //表明作者，可以不写
+
 
 
