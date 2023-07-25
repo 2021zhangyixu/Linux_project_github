@@ -1,3 +1,0 @@
-/home/book/nfs_rootfs/drivers_projects/02_hello_drv_transfer_data/hello_drv.ko
-/home/book/nfs_rootfs/drivers_projects/02_hello_drv_transfer_data/hello_drv.o
-
