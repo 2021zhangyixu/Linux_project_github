@@ -1,9 +1,22 @@
-﻿#include <linux/init.h>     //初始化头文件
+﻿/* 说明 ： 
+ 	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释和进行了微调
+ 	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
+ 	*3，这是设备代码
+ 	*4，TAB为4个空格
+ * 作者 ： CSDN风正豪
+*/
+
+#include <linux/init.h>     //初始化头文件
 #include <linux/module.h>   //最基本的文件，支持动态添加和卸载模块。
 #include <linux/platform_device.h> //平台设备所需要的头文件
 
+void LED_release(struct device *dev)
+{
+	printk("LED_device_release \n");
+}
 
-// 设备资源信息，也就是蜂鸣器所使用的所有寄存器
+
+// 设备资源信息，也就是LED信息代码
 struct resource led_resource[] = {
 	{
 		.start = 131,
@@ -26,6 +39,9 @@ struct platform_device led_device = {
 	.id = -1,   // ID 是用来区分如果设备名字相同的时候(通过在后面添加一个数字来代表不同的设备， 因为有时候有这种需求)
 	.resource = led_resource,  //指向一个资源结构体数组。 一般包含设备信息
 	.num_resources = ARRAY_SIZE(led_resource),  //资源结构体数量
+	.dev = {
+		.release = LED_release,
+		}
 };
 
 

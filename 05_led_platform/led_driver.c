@@ -54,7 +54,7 @@ static struct class *gpio_class;  //一个类，用于创建设备节点
 static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, loff_t *offset)
 {
 	char tmp_buf[2];  //存放驱动层和应用层交互的信息
-	int err;   //没有使用，用于存放copy_from_user和copy_to_user的返回值，消除报错
+	int ret;   //没有使用，用于存放copy_from_user和copy_to_user的返回值，消除报错
 
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
 	if (size != 2)
@@ -64,8 +64,14 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	 * tmp_buf : 驱动层数据
 	 * buf ： 应用层数据
 	 * 1  ：数据长度为1个字节（因为我只需要知道他控制的是那一盏灯，所以只需要传入一个字节数据）
+	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-	err = copy_from_user(tmp_buf, buf, 1);
+	ret = copy_from_user(tmp_buf, buf, 1);
+	if(ret != 0)
+	{
+		printk("copy_from_user is error\r\n");
+		return ret;
+	}
 	
 	//第0项表示要操作哪一个LED，如果操作的LED超出，表示失败
 	if (tmp_buf[0] >= count)
@@ -78,8 +84,14 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	 * buf ： 应用层数据
 	 * tmp_buf : 驱动层数据
 	 * 2  ：数据长度为2个字节
+	 * 返回值 ： 成功返回0，失败返回没有拷贝成功的数据字节数
 	*/
-	err = copy_to_user(buf, tmp_buf, 2);
+	ret = copy_to_user(buf, tmp_buf, 2);
+	if(ret != 0)
+	{
+		printk("copy_to_user is error\r\n");
+		return ret;
+	}
 	
 	return 2;
 }
@@ -87,23 +99,26 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t size, loff_t *offset)
 {
     unsigned char ker_buf[2];
-    int err;
+    int ret;
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
     if (size != 2)
 	{
         return -EINVAL;
 	}
-	
-	printk("write start\r\n");
 
 	/* 作用 ： 驱动层得到应用层数据
 	 * tmp_buf : 驱动层数据
 	 * buf ： 应用层数据
 	 * size  ：数据长度为size个字节
+	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-    err = copy_from_user(ker_buf, buf, size);
+    ret = copy_from_user(ker_buf, buf, size);
+	if(ret != 0)
+	{
+		printk("copy_from_user is error\r\n");
+		return ret;
+	}
 
-	printk("copy_from_user is finshing\r\n");
 
 	//如果要操作的GPIO不在规定范围内，返回错误
     if (ker_buf[0] >= count)
@@ -111,8 +126,6 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 
 	//设置指定引脚电平
     gpio_set_value(gpios[ker_buf[0]].gpio, ker_buf[1]);
-	printk("gpios[%d].gpio = %d,ker_buf[1]=%d\r\n",ker_buf[0],gpios[ker_buf[0]].gpio,ker_buf[1]);
-	printk("write finsh\r\n");
     return 2;    
 }
 

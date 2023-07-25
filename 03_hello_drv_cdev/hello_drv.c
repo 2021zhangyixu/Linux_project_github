@@ -67,6 +67,7 @@ static int hello_open (struct inode *node, struct file *filp)
 */
 static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, loff_t *offset)
 {
+	int ret;  //用于处理返回值
 	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
 	/*__FILE__ ：表示文件
@@ -78,8 +79,14 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 	 * buf  ： 应用层数据
 	 * hello_buf : 驱动层数据
 	 * len  ：数据长度
+	 * 返回值 ： 成功返回0，失败返回没有拷贝成功的数据字节数
 	*/
-    copy_to_user(buf, hello_buf, len);
+    ret = copy_to_user(buf, hello_buf, len);
+	if(ret != 0)
+	{
+		printk("copy_to_user is error\r\n");
+		return ret;
+	}
 
     return len;
 }
@@ -94,6 +101,7 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 */
 static ssize_t hello_write(struct file *filp, const char __user *buf, size_t size, loff_t *offset)
 {
+	int ret;  //用于处理返回值
 	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
 	/*__FILE__ ：表示文件
@@ -105,8 +113,14 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
 	 * buf  ： 应用层数据
 	 * hello_buf : 驱动层数据
 	 * len  ：数据长度
+	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-    copy_from_user(hello_buf, buf, len);
+    ret = copy_from_user(hello_buf, buf, len);
+	if(ret != 0)
+	{
+		printk("copy_from_user is error\r\n");
+		return ret;
+	}
 
     return len;
 }
@@ -130,10 +144,10 @@ static int hello_release (struct inode *node, struct file *filp)
 //1,构造 file_operations
 static const struct file_operations hello_drv = {
     .owner      = THIS_MODULE,
-	.read		= hello_read,
-	.write		= hello_write,
-	.open		= hello_open,
-    .release    = hello_release,
+	.read		= hello_read,     //对应应用层read函数
+	.write		= hello_write,    //对应应用层write函数
+	.open		= hello_open,     //对应应用层open函数
+    .release    = hello_release,  //对应应用层close函数
 };
 
 
@@ -198,7 +212,11 @@ static int hello_init(void)
 	 *参数三 ： dev为主设备号+次设备号
 	 *参数四 ： 没有私有数据
 	*/
-    device_create(hello_class, NULL, dev, NULL, "hello");  /* /dev/hello */
+    device_create(hello_class, NULL, dev, NULL, "hello1");  /* /dev/hello1 */
+    device_create(hello_class, NULL, dev+1, NULL, "hello2");  /* /dev/hello2 */
+
+	//如果成功注册驱动，打印
+	printk("insmod success!\n");
 
    return 0;
 }

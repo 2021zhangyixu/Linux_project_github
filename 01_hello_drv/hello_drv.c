@@ -1,7 +1,8 @@
-/* 说明 ： 
+﻿/* 说明 ： 
  	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释。
  	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
  	*3，这是驱动层代码
+ 	*4，TAB为4个空格
  * 作者 ： CSDN风正豪
 */
 
@@ -103,10 +104,10 @@ static	int hello_release (struct inode *node, struct file *filp)
 //1,构造 file_operations 
 static const struct file_operations  hello_drv = {
     .owner      = THIS_MODULE,
-	.read		= hello_read,
-	.write		= hello_write,
-	.open		= hello_open,
-    .release    = hello_release,
+	.read		= hello_read,     //对应应用层read函数
+	.write		= hello_write,    //对应应用层write函数
+	.open		= hello_open,     //对应应用层open函数
+    .release    = hello_release,  //对应应用层close函数
 };
 
 //2,注册驱动（注意，我们在入口函数中注册）

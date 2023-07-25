@@ -1,7 +1,8 @@
 /* 说明 ： 
  	*1，本代码是学习韦东山老师的驱动入门视频所写，增加了注释。
  	*2，采用的是UTF-8编码格式，如果注释是乱码，需要改一下。
- 	*3，这是应用层代码
+ 	*3，这是驱动层代码
+ 	*4，TAB为4个空格
  * 作者 ： CSDN风正豪
 */
 
@@ -61,6 +62,7 @@ static int hello_open (struct inode *node, struct file *filp)
 */
 static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, loff_t *offset)
 {
+	int ret;  //用于处理返回值
 	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
 	/*__FILE__ ：表示文件
@@ -72,8 +74,14 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 	 * buf  ： 应用层数据
 	 * hello_buf : 驱动层数据
 	 * len  ：数据长度
+	 * 返回值 ： 成功返回0，失败返回没有拷贝成功的数据字节数
 	*/
-    copy_to_user(buf, hello_buf, len);
+    ret = copy_to_user(buf, hello_buf, len);
+	if(ret != 0)
+	{
+		printk("copy_to_user is error\r\n");
+		return ret;
+	}
 
     return len;
 }
@@ -87,6 +95,7 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 */
 static ssize_t hello_write(struct file *filp, const char __user *buf, size_t size, loff_t *offset)
 {
+	int ret;  //用于处理返回值
 	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
 	/*__FILE__ ：表示文件
@@ -98,8 +107,14 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
 	 * buf  ： 应用层数据
 	 * hello_buf : 驱动层数据
 	 * len  ：数据长度
+	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-    copy_from_user(hello_buf, buf, len);
+    ret = copy_from_user(hello_buf, buf, len);
+	if(ret != 0)
+	{
+		printk("copy_from_user is error\r\n");
+		return ret;
+	}
 
     return len;
 }
@@ -122,10 +137,10 @@ static int hello_release (struct inode *node, struct file *filp)
 //1,构造 file_operations
 static const struct file_operations hello_drv = {
     .owner      = THIS_MODULE,
-	.read		= hello_read,
-	.write		= hello_write,
-	.open		= hello_open,
-    .release    = hello_release,
+	.read		= hello_read,     //对应应用层read函数
+	.write		= hello_write,    //对应应用层write函数
+	.open		= hello_open,     //对应应用层open函数
+    .release    = hello_release,  //对应应用层close函数
 };
 
 
@@ -140,8 +155,6 @@ static int hello_init(void)
 	 *major为最终存放的第n项,等下卸载程序需要使用。如果不卸载程序，可以不管这个
 	*/
     major = register_chrdev(0, "100ask_hello", &hello_drv);
-	//如果成功注册驱动，打印
-	printk("insmod success!\n");
 	
 	/******这里相当于命令行输入 mknod  /dev/hello c 240 0 创建设备节点*****/
 	
@@ -161,6 +174,9 @@ static int hello_init(void)
 	 *输入参数是逻辑设备的设备名，即在目录/dev目录下创建的设备名
 	*/
     device_create(hello_class, NULL, MKDEV(major, 0), NULL, "hello");  /* /dev/hello */
+
+	//如果成功注册驱动，打印
+	printk("insmod success!\n");
 
    return 0;
 }

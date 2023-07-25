@@ -43,7 +43,7 @@ struct gpio_desc{
 };
 
 static struct gpio_desc gpios[] = {
-    {131, "led0", },  //引脚编号，名字
+    {131, "led0" },  //引脚编号，名字
 };
 
 /* 主设备号                                                                 */
@@ -55,7 +55,7 @@ static struct class *gpio_class;  //一个类，用于创建设备节点
 static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, loff_t *offset)
 {
 	char tmp_buf[2];  //存放驱动层和应用层交互的信息
-	int err;   //没有使用，用于存放copy_from_user和copy_to_user的返回值，消除报错
+	int ret;   //没有使用，用于存放copy_from_user和copy_to_user的返回值，消除报错
 	int count = sizeof(gpios)/sizeof(gpios[0]); //记录定义的最大引脚数量
 
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
@@ -80,8 +80,14 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	 * buf ： 应用层数据
 	 * tmp_buf : 驱动层数据
 	 * 2  ：数据长度为2个字节
+	 * 返回值 ： 成功返回0，失败返回没有拷贝成功的数据字节数
 	*/
 	err = copy_to_user(buf, tmp_buf, 2);
+	if(ret != 0)
+	{
+		printk("copy_to_user is error\r\n");
+		return ret;
+	}
 	
 	return 2;
 }
@@ -89,7 +95,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t size, loff_t *offset)
 {
     unsigned char ker_buf[2];
-    int err;
+    int ret;
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
     if (size != 2)
         return -EINVAL;
@@ -98,8 +104,14 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 	 * tmp_buf : 驱动层数据
 	 * buf ： 应用层数据
 	 * size  ：数据长度为size个字节
+	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-    err = copy_from_user(ker_buf, buf, size);
+    ret = copy_from_user(ker_buf, buf, size);
+	if(ret != 0)
+	{
+		printk("copy_from_user is error\r\n");
+		return ret;
+	}
 
 	//如果要操作的GPIO不在规定范围内，返回错误
     if (ker_buf[0] >= sizeof(gpios)/sizeof(gpios[0]))
