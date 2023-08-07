@@ -274,15 +274,15 @@ static int led_drver_remove(struct platform_device *pdev)
 
 static const struct of_device_id led_dtb[] = 
 {
-	{.compatible = "test_compatible", },
+	{.compatible = "test_compatible", }, //要求和设备树的compatible名字一样
 	{ /* sentinel */ }
 };
 
 
 static struct platform_driver led_driver = {
 	.driver		= {
-		.name	= "led_device",   //根据这个名字，找到设备
 		.owner = THIS_MODULE,
+		.name	= "led_device",   //根据这个名字，找到设备
 		.of_match_table = led_dtb, //与设备树有关
 	},
 	.probe		= led_drver_probe,   //注册平台之后，内核如果发现支持某一个平台设备，这个函数就会被调用。入口函数

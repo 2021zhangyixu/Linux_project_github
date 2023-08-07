@@ -294,8 +294,8 @@ static int led_drver_remove(struct platform_device *pdev)
 
 static struct platform_driver led_driver = {
 	.driver		= {
-		.name	= "led_device",   //根据这个名字，找到设备
 		.owner = THIS_MODULE,
+		.name	= "led_device",   //根据这个名字，找到设备
 	},
 	.probe		= led_drver_probe,   //注册平台之后，内核如果发现支持某一个平台设备，这个函数就会被调用。入口函数
 	.remove		= led_drver_remove,  //出口函数
