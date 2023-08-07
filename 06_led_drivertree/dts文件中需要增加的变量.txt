@@ -1,0 +1,6 @@
+/{
+    test1:test_device_tree{
+           compatible = "test_compatible";
+           gpios = <&gpio5 3 GPIO_ACTIVE_HIGH>;
+        };
+}
