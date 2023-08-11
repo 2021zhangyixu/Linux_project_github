@@ -1,0 +1,6 @@
+/{
+    test1:test_device_tree{
+           compatible = "led_devicetree";
+           gpios = <&gpio5 3 GPIO_ACTIVE_HIGH>;
+        };
+}

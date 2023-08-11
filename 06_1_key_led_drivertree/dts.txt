@@ -1,0 +1,11 @@
+/{
+    test1:led_device_tree{
+                compatible = "led_devicetree";
+                gpios = <&gpio5 3 GPIO_ACTIVE_LOW>;
+
+        };
+    test2:key_device_tree{
+                compatible = "key_devicetree";
+                gpios = <&gpio5 1 GPIO_ACTIVE_LOW>,<&gpio4 15 GPIO_ACTIVE_HIGH>;
+           };
+}

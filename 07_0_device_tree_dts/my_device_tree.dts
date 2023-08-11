@@ -1,0 +1,14 @@
+/*
+编译：内核源码路径/scripts/dtc/dtc -I dts -O dtb -o my_device_tree.dtb my_device_tree.dts
+反编译：内核源码路径/scripts/dtc/dtc -I dtb -O dts -o test.dts my_device_tree.dtb
+
+举例：比如我是使用的韦东山的Ubuntu镜像，所以内核源码路径是~/100ask_imx6ull-sdk/Linux-4.9.88，因此我的是这样写的
+编译：~/100ask_imx6ull-sdk/Linux-4.9.88/scripts/dtc/dtc -I dts -O dtb -o my_device_tree.dtb my_device_tree.dts
+反编译：~/100ask_imx6ull-sdk/Linux-4.9.88/scripts/dtc/dtc -I dtb -O dts -o test.dts my_device_tree.dtb
+
+*/
+
+/dts-v1/;  //第一行表示dts文件的版本，必须写，否则会报错
+/ {
+	
+};

@@ -1,0 +1,59 @@
+/*
+    （1）同级节点下节点名称不能相同。不同级节点名称可以相同
+    （2）节点名称格式：[标签]:<名称>[@<设备地址>]
+        标签和设备地址都是可选项，<名称>是必选项。[@<设备地址>]没有实际意义，只是让节点名称更有人性化，方便阅读
+    （3）#address-cells 和 #size-cells决定reg信息中的地址和长度信息
+        reg = <address1 length1 address2 length2 address3 length3>
+        举例1：
+            #address-cells = <1>;  
+            #size-cells = <0>; 
+            nodel@22020102{  
+                reg = <0x20220102>; //一个地址信息
+            };
+        举例2：
+            #address-cells = <1>;  
+            #size-cells = <1>; 
+            nodel@22020102{  
+                reg = <0x20220102 0x40>; //一个地址信息和一个长度信息
+            };
+        举例3：
+            #address-cells = <2>;  
+            #size-cells = <0>; 
+            nodel@22020102{  
+                reg = <0x20220101 0x20220102>; //两个地址信息
+            };
+    （4）model属性的值是一个字符串，一般用model描述一些信息，比如设备名称，名字等
+    例如：
+        model = "This is my device_tree";
+    （5）status属性是和设备状态有关，status的属性值是字符串，有如下四种状态可选
+        <1>okay：     设备是可用状态
+        <2>disabled： 设备是不可用状态
+        <3>fail：     设备是不可用状态，并且设备检测到了错误
+        <4>fail-sss： 设备是不可用状态，并且设备检测到了错误，sss是错误内容
+    （6）compatible用于和驱动进行匹配
+        
+*/
+
+/dts-v1/;  //第一行表示dts文件的版本，必须写，否则会报错
+/ {
+    model = "This is my device_tree"; //用来描述一些信息的，比如设备名称，名字等
+    #address-cells = <1>;  //一个地址
+    #size-cells = <1>; //大小为1
+	nodel1{  //子节点
+        #address-cells = <1>;  //一个地址
+        #size-cells = <1>; //大小为1
+        nodel@22020102{  //子子节点
+            reg = <0x20220102 0x40>;
+        };
+    };
+	nodel2{
+        nodel-child{
+            
+        };
+    };
+	led:gpio@22020101{
+        compatible = "led";
+        reg = <0x20220101 0x40>;
+        status = "okay";
+    };
+};
