@@ -82,46 +82,12 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	return 2;
 }
 
-static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t size, loff_t *offset)
-{
-    unsigned char ker_buf[2];
-    int ret;
-	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
-    if (size != 2)
-	{
-        return -EINVAL;
-	}
-
-	/* 作用 ： 驱动层得到应用层数据
-	 * tmp_buf : 驱动层数据
-	 * buf ： 应用层数据
-	 * size  ：数据长度为size个字节
-	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
-	*/
-    ret = copy_from_user(ker_buf, buf, size);
-	if(ret != 0)
-	{
-		printk("copy_from_user is error\r\n");
-		return ret;
-	}
-
-
-	//如果要操作的GPIO不在规定范围内，返回错误
-    if (ker_buf[0] >= count)
-        return -EINVAL;
-
-	//设置指定引脚电平
-    gpio_set_value(gpios[ker_buf[0]].gpio, ker_buf[1]);
-    return 2;    
-}
-
 
 
 /* 定义自己的file_operations结构体                                              */
 static struct file_operations gpio_key_drv = {
 	.owner	 = THIS_MODULE,
 	.read    = gpio_drv_read,
-	.write   = gpio_drv_write,
 };
 
 

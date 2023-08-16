@@ -71,11 +71,15 @@ int main(int argc, char **argv)
 			{
 				led_buf[1] = ON;  
 				ret = write(led_fd, led_buf, 2);
+				ret = read(led_fd, led_buf, 2);
+				printf("LED is %s\r\n",led_buf[1] == ON ? "ON" : "OFF");
 			}
 			if(key_buf[1] == ON) //如果是key2被按下,关灯
 			{
 				led_buf[1] = OFF;  
 				ret = write(led_fd, led_buf, 2);
+				ret = read(led_fd, led_buf, 2);
+				printf("LED is %s\r\n",led_buf[1] == ON ? "ON" : "OFF");
 			}
 		}
 		else

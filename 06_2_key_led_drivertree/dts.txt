@@ -26,3 +26,8 @@ find -name *led_device_tree*
                 //gpios = <&gpio5 1 GPIO_ACTIVE_LOW>,<&gpio4 14 GPIO_ACTIVE_HIGH>;
            };
 }
+
+
+
+
+
