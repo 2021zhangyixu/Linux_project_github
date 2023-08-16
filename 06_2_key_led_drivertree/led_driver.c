@@ -37,14 +37,16 @@
 #include <linux/timer.h>
 
 //描述一个引脚
-struct gpio_desc{
+struct gpio_property{
 	int gpio;   //引脚编号
+	struct gpio_desc *gpiod; //有关 GPIO 引脚的详细信息，以及用于对 GPIO 进行控制和管理的方法
+	unsigned flag;    //用来存放GPIO有效电平信息
     char name[128]; //名字
 };
 
-static struct gpio_desc gpios[] = {
-    {131, "led0" },  //引脚编号，名字
-};
+
+static struct gpio_property *gpios;   //描述gpio
+static int count;                 //记录有多少个GPIO
 
 /* 主设备号                                                                 */
 static int major = 0;
@@ -56,7 +58,6 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 {
 	char tmp_buf[2];  //存放驱动层和应用层交互的信息
 	int ret;   //没有使用，用于存放copy_from_user和copy_to_user的返回值，消除报错
-	int count = sizeof(gpios)/sizeof(gpios[0]); //记录定义的最大引脚数量
 
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
 	if (size != 2)
@@ -66,6 +67,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	 * tmp_buf : 驱动层数据
 	 * buf ： 应用层数据
 	 * 1  ：数据长度为1个字节（因为我只需要知道他控制的是那一盏灯，所以只需要传入一个字节数据）
+	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
 	ret = copy_from_user(tmp_buf, buf, 1);
 	if(ret != 0)
@@ -79,7 +81,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 		return -EINVAL;
 	
 	//将引脚电平读取出来
-	tmp_buf[1] = gpio_get_value(gpios[(int)tmp_buf[0]].gpio);
+	tmp_buf[1] = gpiod_get_value(gpios[(int)tmp_buf[0]].gpiod);
 	
 	/* 作用 ： 驱动层发数据给应用层
 	 * buf ： 应用层数据
@@ -99,7 +101,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 
 static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t size, loff_t *offset)
 {
-    unsigned char ker_buf[2];
+    unsigned char tmp_buf[2];
     int ret;
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
     if (size != 2)
@@ -113,20 +115,21 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 	 * size  ：数据长度为size个字节
 	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-    ret = copy_from_user(ker_buf, buf, size);
+    ret = copy_from_user(tmp_buf, buf, size);
 	if(ret != 0)
 	{
 		printk("copy_from_user is error\r\n");
 		return ret;
 	}
-
+	
+	printk("tmp_buf[1] = %d\r\n",tmp_buf[1]);
 
 	//如果要操作的GPIO不在规定范围内，返回错误
-    if (ker_buf[0] >= sizeof(gpios)/sizeof(gpios[0]))
+    if (tmp_buf[0] >= count)
         return -EINVAL;
 
 	//设置指定引脚电平
-    gpio_set_value(gpios[ker_buf[0]].gpio, ker_buf[1]);
+    gpiod_set_value(gpios[(int)tmp_buf[0]].gpiod, tmp_buf[1]);
     return 2;    
 }
 
@@ -141,35 +144,76 @@ static struct file_operations gpio_led_drv = {
 
 
 /* 在入口函数 */
-static int __init gpio_drv_init(void)
+static int led_drver_probe(struct platform_device *pdev)
 {
-    int err = 0;  //用于保存函数返回值，用于判断函数是否执行成功
-    int i;    //因为存在多个GPIO可能要申请，所以建立一个i进行for循环
-    int count = sizeof(gpios)/sizeof(gpios[0]);  //统计有多少个GPIO
+	int err = 0;  //用于保存函数返回值，用于判断函数是否执行成功
+	int i;    //因为存在多个GPIO可能要申请，所以建立一个i进行for循环
+	struct device_node *np = pdev->dev.of_node;
+	enum of_gpio_flags flag; //存储有效电平信息
 	
 	/*__FILE__ ：表示文件
 	 *__FUNCTION__ ：当前函数名
 	 *__LINE__ ：在文件的哪一行
 	*/
 	printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
-	
-	for (i = 0; i < count; i++)
-	{		
-		/* 设置为输出引脚 */
-		//申请指定GPIO引脚，申请的时候需要用到名字
-		err = gpio_request(gpios[i].gpio, gpios[i].name);
-		//如果返回值小于0，表示申请失败
-		if (err < 0) 
+	if (np)
+	{
+		/* pdev来自设备树 : 示例
+        reg_usb_ltemodule: regulator@1 {
+            compatible = "100ask,gpiodemo";
+            gpios = <&gpio5 5 GPIO_ACTIVE_HIGH>, <&gpio5 3 GPIO_ACTIVE_HIGH>;
+        };
+		*/
+		count = of_gpio_count(np); //统计的设备的 GPIO 数量
+		if (!count)
+			return -EINVAL;
+		
+		printk("count is %d\r\n",count);
+		/* 作用 ：  kmalloc是Linux内核中的一个内存分配函数，用于在内核空间中动态分配内存。
+		 *				它类似于C语言中的malloc函数，但是在内核中使用kmalloc而不是 malloc，因为内核空间和用户空间有不同的内存管理机制。
+		 * size ： 要分配的内存大小，以字节为单位。
+		 * flags ： 分配内存时的标志，表示内存的类型和分配策略，是一个 gfp_t 类型的值。常常采用GFP_KERNEL
+		 *					GFP_KERNEL是内存分配的标志之一，它表示在内核中以普通的内核上下文进行内存分配。
+		 * 返回值 ： 如果内存分配成功，返回指向分配内存区域的指针。如果内存分配失败（例如内存不足），返回NULL。
+		*/
+
+		gpios = kmalloc(count * sizeof(struct gpio_property), GFP_KERNEL);
+		if(gpios == NULL)
 		{
-			//如果GPIO申请失败，打印出是哪个GPIO申请出现问题
-			printk("can not request gpio %s %d\n", gpios[i].name, gpios[i].gpio);
-			return -ENODEV;
+			printk("kmalloc is flaut\r\n");
 		}
-		//如果GPIO申请成功，设置输出高电平
-		gpio_direction_output(gpios[i].gpio, 1);
+		printk("kmalloc is ok\r\n");
+		
+		for (i = 0; i < count; i++)
+		{
+			/* 设置为输出引脚 */
+			gpios[i].gpio =  of_get_gpio_flags(np, i, &flag);   //获得gpio信息
+			sprintf(gpios[i].name, "%s", np->name);  //将设备树中的节点名字传递给gpios[i].name
+			printk("gpios[%d].name is %s  flag is %d\r\n",i,gpios[i].name,flag);  
+			//申请指定GPIO引脚，申请的时候需要用到名字
+			//err = gpio_request(gpios[i].gpio, gpios[i].name);
+			gpios[i].gpiod = gpio_to_desc(gpios[i].gpio);
+			gpios[i].flag = GPIOF_OUT_INIT_HIGH;  //将GPIO设置成上拉输出
+			if (flag & OF_GPIO_ACTIVE_LOW) //判断有效电平是否为低电平
+			{
+				gpios[i].flag |= GPIOF_ACTIVE_LOW;
+			}
+			printk("gpios[%d].flag is %d \r\n",i,gpios[i].flag); 
+			err = devm_gpio_request_one(&pdev->dev, gpios[i].gpio, gpios[i].flag, gpios[i].name);
+			//如果返回值小于0，表示申请失败
+			if (err < 0) 
+			{
+				//如果GPIO申请失败，打印出是哪个LED申请出现问题
+				printk("can not request gpio %s \n", gpios[i].name);
+				return -ENODEV;
+			}
+			//如果GPIO申请成功，设置输出高电平
+			//gpio_direction_output(gpios[i].gpio, 1);
+			printk("gpios[%d] is setting\r\n",i);	
+		}
 	}
 	
-	printk("GPIO_set is ok\r\n");
+	printk("LED_GPIO_set is ok\r\n");
 
 	/* 注册file_operations 	*/
 	//注册字符驱动程序
@@ -205,12 +249,19 @@ static int __init gpio_drv_init(void)
 	return err;
 }
 
+//static int led_drver_probe(struct platform_device *pdev)
+//{
+//	//打印匹配到设备名字
+//	printk("This is %s,gpio is %d\r\n",pdev->resource[0].name,pdev->resource[0].start);
+//	printk("This is %s,gpio is %d\r\n",pdev->resource[1].name,pdev->resource[1].start);
+//	return 0;
+//}
+
 /* 有入口函数就应该有出口函数：卸载驱动程序时，就会去调用这个出口函数
  */
-static void __exit gpio_drv_exit(void)
+static int led_drver_remove(struct platform_device *pdev)
 {
     int i;
-    int count = sizeof(gpios)/sizeof(gpios[0]);
 	/*__FILE__ ：表示文件
 	 *__FUNCTION__ ：当前函数名
 	 *__LINE__ ：在文件的哪一行
@@ -231,13 +282,54 @@ static void __exit gpio_drv_exit(void)
 	
 	//如果执行到这里了，说明LED驱动卸载完成
 	printk("The LED driver is uninstalled\n");
+	return 0;
 }
 
 
-/* 7. 其他完善：提供设备信息                  */
+static const struct of_device_id led_dtb[] = 
+{
+	{.compatible = "led_devicetree" }, //要求和设备树的compatible名字一样
+	{ /* sentinel */ }
+};
 
-module_init(gpio_drv_init);  //确认入口函数
-module_exit(gpio_drv_exit);  //确认出口函数
+
+static struct platform_driver led_driver = {
+	.driver		= {
+		.owner = THIS_MODULE,
+		.name	= "led_device",   //根据这个名字，找到设备
+		.of_match_table = led_dtb, //与设备树有关
+	},
+	.probe		= led_drver_probe,   //注册平台之后，内核如果发现支持某一个平台设备，这个函数就会被调用。入口函数
+	.remove		= led_drver_remove,  //出口函数
+};
+
+
+//注册时候的入口函数
+static int __init led_drver_init(void)
+{
+	int ret = 0;
+	// platform驱动注册到 Linux 内核
+	ret = platform_driver_register(&led_driver);  //注意，这里是driver表示是驱动
+	if(ret<0)
+	{
+		printk("led_driver_register error \n");
+		return ret;
+	}
+	printk("led_driver_register ok \n");
+	return ret;
+}
+
+//卸载时候的出口函数
+static void __exit led_drver_exit(void)
+{
+	/* 反注册platform_driver */
+	platform_driver_unregister(&led_driver);   //注意，这里是driver表示是驱动
+	printk("led_driver_unregister ok \n");
+}
+
+
+module_init(led_drver_init);  //确认入口函数
+module_exit(led_drver_exit);  //确认出口函数
 
 /*最后我们需要在驱动中加入 LICENSE 信息和作者信息，其中 LICENSE 是必须添加的，否则的话编译的时候会报错，作者信息可以添加也可以不添加
  *这个协议要求我们代码必须免费开源，Linux遵循GPL协议，他的源代码可以开放使用，那么你写的内核驱动程序也要遵循GPL协议才能使用内核函数

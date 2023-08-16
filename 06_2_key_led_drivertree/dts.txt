@@ -1,0 +1,28 @@
+/*
+指令：
+cd /home/book/100ask_imx6ull-sdk/Linux-4.9.88
+vi arch/arm/boot/dts/100ask_imx6ull-14x14.dts
+make dtbs
+cp arch/arm/boot/dts/100ask_imx6ull-14x14.dtb /home/book/nfs_rootfs
+单板中
+mount -t nfs -o nolock,vers=3  192.168.5.11:/home/book/nfs_rootfs  /mnt
+mv /mnt/100ask_imx6ull-14x14.dtb /boot/
+reboot
+mount -t nfs -o nolock,vers=3  192.168.5.11:/home/book/nfs_rootfs  /mnt
+echo "7 4 1 7" > /proc/sys/kernel/printk
+cd /sys/devices 
+find -name *led_device_tree*
+*/
+//cat /sys/kernel/debug/gpio  查看引脚状态
+/{
+    test1:led_device_tree{
+                compatible = "led_devicetree";
+                gpios = <&gpio5 3 GPIO_ACTIVE_LOW>;
+
+        };
+    test2:key_device_tree{
+                compatible = "key_devicetree";
+                gpios = <&gpio5 1 GPIO_ACTIVE_LOW>,<&gpio4 14 GPIO_ACTIVE_LOW>;
+                //gpios = <&gpio5 1 GPIO_ACTIVE_LOW>,<&gpio4 14 GPIO_ACTIVE_HIGH>;
+           };
+}

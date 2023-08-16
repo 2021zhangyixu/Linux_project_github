@@ -37,12 +37,12 @@
 #include <linux/timer.h>
 
 //描述一个引脚
-struct gpio_desc{
+struct gpio_property{
 	int gpio;   //引脚编号
     char name[128]; //名字
 };
 
-static struct gpio_desc *gpios;   //描述gpio
+static struct gpio_property *gpios;   //描述gpio
 static int count;                 //记录有多少个GPIO
 
 /* 主设备号                                                                 */
@@ -59,21 +59,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
 	if (size != 2)
 		return -EINVAL;
-	
-//	/* 作用 ： 驱动层得到应用层数据
-//	 * tmp_buf : 驱动层数据
-//	 * buf ： 应用层数据
-//	 * 1  ：数据长度为1个字节（因为我只需要知道他控制的是那一盏灯，所以只需要传入一个字节数据）
-//	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
-//	*/
-//	ret = copy_from_user(tmp_buf, buf, 1);
-//	if(ret != 0)
-//	{
-//		printk("copy_from_user is error\r\n");
-//		return ret;
-//	}
-	
-	
+
 	//将两个按键引脚电平读取出来
 	for(i = 0;i < count;i++)
 	{
@@ -172,7 +158,7 @@ static int key_drver_probe(struct platform_device *pdev)
 		 * 返回值 ： 如果内存分配成功，返回指向分配内存区域的指针。如果内存分配失败（例如内存不足），返回NULL。
 		*/
 
-		gpios = kmalloc(count * sizeof(struct gpio_desc), GFP_KERNEL);
+		gpios = kmalloc(count * sizeof(struct gpio_property), GFP_KERNEL);
 		if(gpios == NULL)
 		{
 			printk("kmalloc is flaut\r\n");
@@ -181,12 +167,10 @@ static int key_drver_probe(struct platform_device *pdev)
 		
 		for (i = 0; i < count; i++)
 		{
-			/* 设置为输出引脚 */
+			/* 设置为输入引脚 */
 			gpios[i].gpio = of_get_gpio(np, i);   //获得gpio信息
-			printk("gpios[%d] is %d\r\n",i,gpios[i].gpio);
 			sprintf(gpios[i].name, "%s", np->name);  //将设备树中的节点名字传递给gpios[i].name
-			printk("gpios[%d] is ok\r\n",i);
-			printk("gpios[%d].name is %s\r\n",i,gpios[i].name);  //gpios[i].name is test_device_tree_pin_0
+			printk("gpios[%d].name is %s\r\n",i,gpios[i].name);  
 			//申请指定GPIO引脚，申请的时候需要用到名字
 			err = gpio_request(gpios[i].gpio, gpios[i].name);
 			//如果返回值小于0，表示申请失败
