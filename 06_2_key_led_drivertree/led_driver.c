@@ -80,7 +80,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	if (tmp_buf[0] >= count)
 		return -EINVAL;
 	
-	//将引脚电平读取出来
+	//将引脚逻辑电平读取出来
 	tmp_buf[1] = gpiod_get_value(gpios[(int)tmp_buf[0]].gpiod);
 	
 	/* 作用 ： 驱动层发数据给应用层
@@ -128,7 +128,7 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
     if (tmp_buf[0] >= count)
         return -EINVAL;
 
-	//设置指定引脚电平
+	//设置指定引脚逻辑电平
     gpiod_set_value(gpios[(int)tmp_buf[0]].gpiod, tmp_buf[1]);
     return 2;    
 }
@@ -193,7 +193,7 @@ static int led_drver_probe(struct platform_device *pdev)
 			//申请指定GPIO引脚，申请的时候需要用到名字
 			//err = gpio_request(gpios[i].gpio, gpios[i].name);
 			gpios[i].gpiod = gpio_to_desc(gpios[i].gpio);
-			gpios[i].flag = GPIOF_OUT_INIT_HIGH;  //将GPIO设置成上拉输出
+			gpios[i].flag = GPIOF_OUT_INIT_HIGH;  //将GPIO设置成默认高电平输出（注意，这里是物理电平）
 			if (flag & OF_GPIO_ACTIVE_LOW) //判断有效电平是否为低电平
 			{
 				gpios[i].flag |= GPIOF_ACTIVE_LOW;

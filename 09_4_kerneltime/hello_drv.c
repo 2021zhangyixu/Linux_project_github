@@ -40,6 +40,14 @@ static struct cdev hello_cdev; //用于与file_operations结构体挂钩
 static dev_t dev;  //存储驱动的主设备号和次设备号
 
 static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信息
+static struct timer_list test_timer;  //内核定时器定时时间
+
+static void test_timer_fuction(unsigned long data) //内核定时器调度函数
+{
+	printk("This is test_timer_fuction %ld\r\n",data);
+
+}
+
 
 /*
  *传入参数 ：
@@ -91,6 +99,8 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
     return len;
 }
 
+
+
 /*
  *传入参数 ：
 	 *filp ：要写的文件
@@ -102,6 +112,7 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 static ssize_t hello_write(struct file *filp, const char __user *buf, size_t size, loff_t *offset)
 {
 	int ret;  //用于处理返回值
+	//unsigned long delay_time;
 	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
 	/*__FILE__ ：表示文件
@@ -121,6 +132,10 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
 		printk("copy_from_user is error\r\n");
 		return ret;
 	}
+	setup_timer(&test_timer, test_timer_fuction, (unsigned long)hello_buf[0]);
+	//delay_time = jiffies + msecs_to_jiffies(hello_buf[0]*1000UL);
+	test_timer.expires = jiffies + msecs_to_jiffies(hello_buf[0]*1000UL);
+	add_timer(&test_timer);
 
     return len;
 }
@@ -226,6 +241,7 @@ static int hello_init(void)
 //4,出口函数
 static void hello_exit(void)
 {
+	del_timer(&test_timer);
 	//销毁hello_class类下面的设备节点
     device_destroy(hello_class, dev);
     device_destroy(hello_class, dev+1);

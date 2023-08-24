@@ -33,15 +33,23 @@
 #include <linux/uio.h>
 
 #include <linux/uaccess.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
 
 
 static struct class *hello_class; //一个类，用于创建设备节点
 static struct cdev hello_cdev; //用于与file_operations结构体挂钩
 static dev_t dev;  //存储驱动的主设备号和次设备号
+int major,minor; //分别存储主设备号和次设备号
 
 static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信息
+DECLARE_WAIT_QUEUE_HEAD(read_wq);  //定义并且初始化等待队列头
+static int flags = 0;
+struct fasync_struct *fasync;
 
-/*
+
+//int a; 
+/*;
  *传入参数 ：
 	 *node ：
 	 *filp ：
@@ -75,6 +83,14 @@ static ssize_t hello_read (struct file *filp, char __user *buf, size_t size, lof
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+	if(filp -> f_flags & O_NONBLOCK) //如果以非阻塞方式打开文件
+	{
+		printk("O_NONBLOCK read\r\n");
+		if(flags != 1) //如果没有收到数据，返回
+			return -EAGAIN;
+	}
+	wait_event_interruptible(read_wq, flags);  //可被中断的阻塞方式，如果flags为1，跳出阻塞
+	flags = 0;
 	/* 作用 ： 驱动层发数据给应用层
 	 * buf  ： 应用层数据
 	 * hello_buf : 驱动层数据
@@ -104,11 +120,13 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
 	int ret;  //用于处理返回值
 	//判断size是否大于100，如果大于100，len=100，否则len=size
     unsigned long len = size > 100 ? 100 : size;
+	
 	/*__FILE__ ：表示文件
 	 *__FUNCTION__ ：当前函数名
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+	
 	/* 作用 ： 驱动层得到应用层数据
 	 * buf  ： 应用层数据
 	 * hello_buf : 驱动层数据
@@ -118,10 +136,15 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
     ret = copy_from_user(hello_buf, buf, len);
 	if(ret != 0)
 	{
+		printk("%s is error\n",__FILE__);
 		printk("copy_from_user is error\r\n");
 		return ret;
 	}
+	
+	flags = 1;
+	wake_up_interruptible(&read_wq);
 
+	kill_fasync(&fasync, SIGIO, POLLIN);  //可读时候设置成POLLIN，可写的时候设置成POLLOUT
     return len;
 }
 
@@ -141,6 +164,34 @@ static int hello_release (struct inode *node, struct file *filp)
     return 0;
 }
 
+static unsigned int hello_poll(struct file *filp, struct poll_table_struct *p)
+{
+	unsigned int ret = 0;
+	/*__FILE__ ：表示文件
+	 *__FUNCTION__ ：当前函数名
+	 *__LINE__ ：在文件的哪一行
+	*/
+    printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+	
+	printk("\r\n This is POLL \r\n");
+	
+	poll_wait(filp,&read_wq,p);  //这个函数不会引起阻塞
+
+	if(flags == 1)
+	{
+		ret |= POLLIN;
+		printk("poll ret is %u\r\n",ret);
+		flags = 0;
+	}
+	return ret;
+}
+
+static int hello_fasync(int fd, struct file *filp, int on)
+{
+	return fasync_helper(fd,filp,on, &fasync);
+}
+
+
 //1,构造 file_operations
 static const struct file_operations hello_drv = {
     .owner      = THIS_MODULE,
@@ -148,6 +199,8 @@ static const struct file_operations hello_drv = {
 	.write		= hello_write,    //对应应用层write函数
 	.open		= hello_open,     //对应应用层open函数
     .release    = hello_release,  //对应应用层close函数
+    .poll       = hello_poll,     //对应应用层poll函数
+    .fasync     = hello_fasync,   //对应应用层fcntl函数
 };
 
 
@@ -177,6 +230,7 @@ static int hello_init(void)
 		//返回无效参数
 		return -EINVAL;
 	}
+	printk(KERN_ERR "alloc_chrdev_region() OK\n");
 	//初始化cdev，让cdev与file_operations结构体挂钩
     cdev_init(&hello_cdev, &hello_drv);
 	/*
@@ -190,11 +244,11 @@ static int hello_init(void)
 	if (ret)
     {
 		//打印增加cdev失败
-		printk(KERN_ERR "cdev_add() failed for hello\n");
+		printk("cdev_add() failed for hello\n");
 		//返回无效参数
 		return -EINVAL;
     }
-	
+	printk("cdev_add() OK\n");
 	/******这里相当于命令行输入 mknod    /dev/hello c 240 0 创建设备节点*****/
 	
 	//创建类，为THIS_MODULE模块创建一个类，这个类叫做hello_class
@@ -203,9 +257,12 @@ static int hello_init(void)
 	{
 		//打印类创建失败
 		printk("failed to allocate class\n");
+		//注销字符驱动程序
+		unregister_chrdev(major, "hello_class");
 		//返回错误
 		return PTR_ERR(hello_class);
 	}
+	printk("success to allocate class\n");
 	/*输入参数是逻辑设备的设备名，即在目录/dev目录下创建的设备名
 	 *参数一 ： 在hello_class类下面创建设备
 	 *参数二 ： 无父设备的指针
@@ -215,6 +272,7 @@ static int hello_init(void)
     device_create(hello_class, NULL, dev, NULL, "hello1");  /* /dev/hello1 */
     device_create(hello_class, NULL, dev+1, NULL, "hello2");  /* /dev/hello2 */
 
+	flags = 0;
 	//如果成功注册驱动，打印
 	printk("insmod success!\n");
 

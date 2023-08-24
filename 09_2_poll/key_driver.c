@@ -70,7 +70,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	for(i = 0;i < count;i++)
 	{
 		tmp_buf[i] = gpiod_get_value(gpios[i].gpiod);
-		printk("gpios[%d].gpio value is %d\r\n",i,tmp_buf[i]);
+		//printk("gpios[%d].gpio value is %d\r\n",i,tmp_buf[i]);
 	}
 	/* 作用 ： 驱动层发数据给应用层
 	 * buf ： 应用层数据

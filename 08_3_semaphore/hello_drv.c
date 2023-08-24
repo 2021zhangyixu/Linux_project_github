@@ -38,10 +38,13 @@
 static struct class *hello_class; //一个类，用于创建设备节点
 static struct cdev hello_cdev; //用于与file_operations结构体挂钩
 static dev_t dev;  //存储驱动的主设备号和次设备号
+int major,minor; //分别存储主设备号和次设备号
 
 static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信息
 
-/*
+static struct semaphore semlock;
+//int a; 
+/*;
  *传入参数 ：
 	 *node ：
 	 *filp ：
@@ -49,6 +52,14 @@ static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信�
 */
 static int hello_open (struct inode *node, struct file *filp)
 {
+#if 0
+	down(&semlock);
+#endif
+	if(down_interruptible(&semlock)) //获取信号量
+	{
+    	printk("%s is error\n", __FILE__);
+		return -EINTR;
+	}
 	/*__FILE__ ：表示文件
 	 *__FUNCTION__ ：当前函数名
 	 *__LINE__ ：在文件的哪一行
@@ -118,10 +129,12 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
     ret = copy_from_user(hello_buf, buf, len);
 	if(ret != 0)
 	{
+		printk("%s is error\n",__FILE__);
 		printk("copy_from_user is error\r\n");
 		return ret;
 	}
 
+	
     return len;
 }
 
@@ -138,6 +151,8 @@ static int hello_release (struct inode *node, struct file *filp)
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+	up(&semlock);//释放信号量
+
     return 0;
 }
 
@@ -177,6 +192,7 @@ static int hello_init(void)
 		//返回无效参数
 		return -EINVAL;
 	}
+	printk(KERN_ERR "alloc_chrdev_region() OK\n");
 	//初始化cdev，让cdev与file_operations结构体挂钩
     cdev_init(&hello_cdev, &hello_drv);
 	/*
@@ -190,11 +206,13 @@ static int hello_init(void)
 	if (ret)
     {
 		//打印增加cdev失败
-		printk(KERN_ERR "cdev_add() failed for hello\n");
+		printk("cdev_add() failed for hello\n");
 		//返回无效参数
 		return -EINVAL;
     }
-	
+	printk("cdev_add() OK\n");
+	sema_init(&semlock, 1); //初始化信号量，并且设置为1
+	printk("sema_init() OK\n");
 	/******这里相当于命令行输入 mknod    /dev/hello c 240 0 创建设备节点*****/
 	
 	//创建类，为THIS_MODULE模块创建一个类，这个类叫做hello_class
@@ -203,9 +221,12 @@ static int hello_init(void)
 	{
 		//打印类创建失败
 		printk("failed to allocate class\n");
+		//注销字符驱动程序
+		unregister_chrdev(major, "hello_class");
 		//返回错误
 		return PTR_ERR(hello_class);
 	}
+	printk("success to allocate class\n");
 	/*输入参数是逻辑设备的设备名，即在目录/dev目录下创建的设备名
 	 *参数一 ： 在hello_class类下面创建设备
 	 *参数二 ： 无父设备的指针

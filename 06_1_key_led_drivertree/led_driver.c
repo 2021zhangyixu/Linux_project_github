@@ -77,7 +77,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 	if (tmp_buf[0] >= count)
 		return -EINVAL;
 	
-	//将引脚电平读取出来
+	//将引脚物理电平读取出来
 	tmp_buf[1] = gpio_get_value(gpios[(int)tmp_buf[0]].gpio);
 	
 	/* 作用 ： 驱动层发数据给应用层
@@ -98,7 +98,7 @@ static ssize_t gpio_drv_read (struct file *file, char __user *buf, size_t size, 
 
 static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t size, loff_t *offset)
 {
-    unsigned char ker_buf[2];
+    unsigned char tmp_buf[2];
     int ret;
 	//应用程序读的时候，传入的值如果不是两个，那么返回一个错误
     if (size != 2)
@@ -112,7 +112,7 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 	 * size  ：数据长度为size个字节
 	 * 返回值 : 失败返回没有被拷贝的字节数，成功返回0.
 	*/
-    ret = copy_from_user(ker_buf, buf, size);
+    ret = copy_from_user(tmp_buf, buf, size);
 	if(ret != 0)
 	{
 		printk("copy_from_user is error\r\n");
@@ -121,11 +121,11 @@ static ssize_t gpio_drv_write(struct file *file, const char __user *buf, size_t 
 
 
 	//如果要操作的GPIO不在规定范围内，返回错误
-    if (ker_buf[0] >= count)
+    if (tmp_buf[0] >= count)
         return -EINVAL;
 
-	//设置指定引脚电平
-    gpio_set_value(gpios[ker_buf[0]].gpio, ker_buf[1]);
+	//设置指定引脚物理电平
+    gpio_set_value(gpios[(int)tmp_buf[0]].gpio, tmp_buf[1]);
     return 2;    
 }
 

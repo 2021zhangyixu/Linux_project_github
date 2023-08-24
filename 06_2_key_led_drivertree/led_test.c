@@ -51,10 +51,10 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	key_fd = open("/dev/100ask_key", O_RDWR);
-	if (led_fd == -1)	//如果无法打开，返回错误
+	if (key_fd == -1)	//如果无法打开，返回错误
 	{
 		printf("can not open file /dev/100ask_key\n");
-		return -1;
+		return key_fd;
 	}
 	/* 作用 ： 将字符串转化为一个整数
 	 * argv[1] ：	要转换为长整数的字符串

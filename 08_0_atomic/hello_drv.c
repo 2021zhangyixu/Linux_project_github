@@ -38,10 +38,13 @@
 static struct class *hello_class; //一个类，用于创建设备节点
 static struct cdev hello_cdev; //用于与file_operations结构体挂钩
 static dev_t dev;  //存储驱动的主设备号和次设备号
+int major,minor; //分别存储主设备号和次设备号
 
 static unsigned char hello_buf[100]; //存放驱动层和应用层交互的信息
 
-/*
+static atomic_t v=ATOMIC_INIT(1);
+//int a; 
+/*;
  *传入参数 ：
 	 *node ：
 	 *filp ：
@@ -54,6 +57,12 @@ static int hello_open (struct inode *node, struct file *filp)
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+//	if(!atomic_dec_and_test(&v)) //从 v 减 1，如果结果为 0 就返回真，否则返回假
+//	{
+//		printk("%s is error\n",__FILE__);
+//		atomic_inc(&v);
+//		return -EBUSY; //告诉设备正忙
+//	}
     return 0;
 }
 
@@ -118,10 +127,27 @@ static ssize_t hello_write(struct file *filp, const char __user *buf, size_t siz
     ret = copy_from_user(hello_buf, buf, len);
 	if(ret != 0)
 	{
+		printk("%s is error\n",__FILE__);
 		printk("copy_from_user is error\r\n");
 		return ret;
 	}
-
+	if(hello_buf[0] == 0)
+	{
+		//printk("start atomic_dec_and_test\r\n");
+		printk("v is %d\r\n",atomic_read(&v));
+		if(!atomic_dec_and_test(&v)) //判断V是否为1，如果是1就为0
+		{
+			printk("v is not 1\r\n");
+			atomic_inc(&v); //v自增1
+			return -EBUSY;
+		}
+	}
+	if(hello_buf[0] == 1)
+	{
+		atomic_set(&v,1);
+		printk("v is %d\r\n",atomic_read(&v));
+	}
+	
     return len;
 }
 
@@ -138,6 +164,8 @@ static int hello_release (struct inode *node, struct file *filp)
 	 *__LINE__ ：在文件的哪一行
 	*/
     printk("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+	atomic_set(&v,1);
+
     return 0;
 }
 
@@ -177,6 +205,7 @@ static int hello_init(void)
 		//返回无效参数
 		return -EINVAL;
 	}
+	printk(KERN_ERR "alloc_chrdev_region() OK\n");
 	//初始化cdev，让cdev与file_operations结构体挂钩
     cdev_init(&hello_cdev, &hello_drv);
 	/*
@@ -194,6 +223,7 @@ static int hello_init(void)
 		//返回无效参数
 		return -EINVAL;
     }
+	printk(KERN_ERR "cdev_add() OK\n");
 	
 	/******这里相当于命令行输入 mknod    /dev/hello c 240 0 创建设备节点*****/
 	
@@ -203,9 +233,12 @@ static int hello_init(void)
 	{
 		//打印类创建失败
 		printk("failed to allocate class\n");
+		//注销字符驱动程序
+		unregister_chrdev(major, "hello_class");
 		//返回错误
 		return PTR_ERR(hello_class);
 	}
+	printk("success to allocate class\n");
 	/*输入参数是逻辑设备的设备名，即在目录/dev目录下创建的设备名
 	 *参数一 ： 在hello_class类下面创建设备
 	 *参数二 ： 无父设备的指针
