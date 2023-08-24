@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 	//向字符驱动程序中写入
 	ret = write(fd, buf, 1);
 
-
+	while(1);
     //关闭文件
     close(fd);
     return 0;

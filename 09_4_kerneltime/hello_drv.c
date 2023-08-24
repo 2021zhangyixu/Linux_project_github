@@ -45,6 +45,7 @@ static struct timer_list test_timer;  //内核定时器定时时间
 static void test_timer_fuction(unsigned long data) //内核定时器调度函数
 {
 	printk("This is test_timer_fuction %ld\r\n",data);
+	mod_timer(&test_timer,jiffies + msecs_to_jiffies(data*1000UL));
 
 }
 
