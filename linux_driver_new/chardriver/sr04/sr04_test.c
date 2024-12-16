@@ -16,20 +16,40 @@
 #include <signal.h>
 
 static int fd;
+static u_int64_t buf ;
+
+static void func(int signum)
+{
+	read(fd,&buf,sizeof(buf));
+    printf("app buf is %llu ns \n",buf);
+	printf("time is %llu us \n",buf / 1000);
+	printf("distance is %f cm \n",(buf/1000)*0.034);
+}
 
 int main(int argc, char **argv)
 {
-	int ret;
-
-	fd = open("/dev/chr_device_key", O_RDWR);
-	if (fd == -1)
-	{
-		printf("can not open file /dev/chr_device_key\n");
+	int ret,flags;
+	fd = open("/dev/chr_device_sr04", O_RDWR);
+	if (fd == -1) {
+		printf("can not open file /dev/chr_device_sr04\n");
 		return -1;
 	}
-	printf("please press key\n");
-	sleep(10);
+	// 设置 SIGIO 信号的处理函数为 func，当 I/O 事件触发时调用 func
+	signal(SIGIO,func);
+	// 设置当前进程为文件描述符 fd 的所有者，以便接收 SIGIO 信号
+    fcntl(fd,F_SETOWN,getpid());
+	// 获取文件描述符 fd 的当前标志位
+    flags = fcntl(fd,F_GETFD);
+	// 设置文件描述符 fd 的标志位，启用 FASYNC（异步 I/O 通知）
+    fcntl(fd,F_SETFL,flags| FASYNC);
+
+	sleep(1);
+	printf("ready\n");
+	sleep(1);
+	write(fd,&buf,sizeof(buf));
+	sleep(3);
 	printf("time over\n");
+
 	close(fd);
 	
 	return 0;

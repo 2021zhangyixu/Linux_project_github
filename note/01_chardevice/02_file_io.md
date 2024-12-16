@@ -182,6 +182,86 @@ void wake_up(wait_queue_head_t *q);
 void wake_up_interruptible(wait_queue_head_t *q);
 ```
 
+## 信号驱动 IO
+
+1. 信号驱动 IO 无需应用程序查询设备状态，一旦设备准备就绪，就会触发 `SIGIO` 信号，进而调用注册的函数。
+
+### 应用程序
+
+1. 实现信号驱动 IO ，应用程序需要完成如下三步。
+   - 注册信号处理函数。应用程序通过 `signal()` 函数注册 `SIGIO` 信号处理函数。
+   - 指定接收 `SIGIO` 信号的进程。
+   - 开启信号驱动 IO，利用 `F_GETFD` 标志位。
+
+```c
+static void func(int signum)
+{
+	read(fd,&buf,sizeof(buf));
+    printf("app buf is %llu ns \n",buf);
+    // ...
+}
+
+int main(int argc, char **argv)
+{
+	int ret,flags;
+	fd = open("/dev/chr_device_sr04", O_RDWR);
+	if (fd == -1) {
+		printf("can not open file /dev/chr_device_sr04\n");
+		return -1;
+	}
+	// 1. 设置 SIGIO 信号的处理函数为 func，当 I/O 事件触发时调用 func
+	signal(SIGIO,func);
+	// 2. 设置当前进程为文件描述符 fd 的所有者，以便接收 SIGIO 信号
+    fcntl(fd,F_SETOWN,getpid());
+	// 获取文件描述符 fd 的当前标志位
+    flags = fcntl(fd,F_GETFD);
+	// 3. 设置文件描述符 fd 的标志位，启用 FASYNC（异步 I/O 通知）
+    fcntl(fd,F_SETFL,flags| FASYNC);
+	
+    // ...
+	close(fd);
+	
+	return 0;
+}
+```
+
+### 驱动程序
+
+1. 在 `file_operations` 结构体中实现 `fasync` 成员函数。并且在 `fasync` 成员函数中调用 `fasync_helper()` 函数来操作 `fasync_struct` 结构体。
+
+```c
+typedef struct chr_drv {
+	// ...
+    struct fasync_struct *fasync;
+}chr_drv;
+
+
+static int chrdev_fasync(int fd, struct file *file, int on)
+{
+    chr_drv *chrdev_private_data = (chr_drv *)file->private_data;
+    return fasync_helper(fd,file,on,&chrdev_private_data->fasync);
+}
+
+static struct file_operations chr_file_operations = {
+	.owner = THIS_MODULE,
+    .fasync = chrdev_fasync, 
+    // ...
+};
+```
+
+2. 当驱动中数据准备好了以后，就可以利用 `kill_fasync()` 函数来通知应用程序。例如我在一个中断中得到了数据，然后调用该函数。此时应用程序中 `signal()` 函数注册的函数将会被调用，在这个被调用的函数中，我们可以使用 `read()` 函数进行读取要获取的数据。
+
+```c
+static irqreturn_t echo_isr_fun(int irq, void *dev_id)
+{
+    // ...
+    kill_fasync(&s_char_drv.fasync,SIGIO,POLL_IN);    
+    return IRQ_HANDLED;
+}
+```
+
+
+
 ## IOCTL 驱动传参
 
 应用程序通过向内核空间写入 1 和 0 从而控制 GPIO 引脚的亮灭，但是**读写操作主要是数据流对数据进行操作**，而一些复杂的控制通常需要非数据操作，这个时候就需要使用 `ioctl` 函数进行实现。
