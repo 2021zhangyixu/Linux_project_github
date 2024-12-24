@@ -269,9 +269,8 @@ const struct platform_device_id my_driver_id_table[] = {
 
 static const struct of_device_id dts_table[] = 
 {
-	{
-        .compatible = "dts_led@1", 
-    },
+	{ .compatible = "dts_led@1", },
+    { /* Sentinel (end of array marker) */ }
 };
 
 static struct platform_driver led_driver = {

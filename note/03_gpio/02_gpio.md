@@ -10,6 +10,8 @@ cat /sys/kernel/debug/gpio
 
 ## GPIO 子系统
 
+如果 pinctrl 子系统将一个 pin 设置成了 gpio 后，那么接下来将会用到 gpio 子系统。
+
 ### 注册与注销
 
 1. 注册 GPIO。
